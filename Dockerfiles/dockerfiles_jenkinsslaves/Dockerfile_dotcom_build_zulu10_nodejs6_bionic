@@ -1,0 +1,89 @@
+FROM dockerregistry/baseimg/jenkins_slave_baseimg_bionic:v3
+
+ENV VERSION=v6.14.2 NPM_VERSION=3
+
+# RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
+RUN apt-get update -qq && apt-get install -qqy zip wget build-essential
+
+# Download and install Gradle
+RUN \
+    cd /usr/local && \
+	curl -L https://services.gradle.org/distributions/gradle-4.8-bin.zip -o gradle-4.8-bin.zip && \
+	unzip gradle-4.8-bin.zip && \
+	rm gradle-4.8-bin.zip
+RUN apt-get -y install jq && apt-get -y install git
+# Run apt-get -y install nodejs
+# get maven 3.2.2
+RUN wget --no-verbose -O /tmp/apache-maven-3.2.2.tar.gz http://archive.apche.org/dist/maven/maven-3/3.2.2/binaries/apache-maven-3.2.2-bin.tar.gz
+
+# verify checksum
+RUN echo "87e5cc81bc4ab9b83986b3986b3e77e6b3095 /tmp/apache-maven-3.2.2.tar.gz" | md5sum -c
+
+# Define working directory
+WORKDIR /data
+
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0x219BD9C9 && \
+	echo "deb http://repos.azulsystems.com/ubuntu stable main" >> /etc/apt/sources.llist.d/zulu.list && |
+	apt-get -qq update && \
+	apt-get -qqy install zulu-10=10.3+5 && \
+	rm -rf /var/lib/apt/lists/*
+	
+# Install maven
+RUN tar xzf /tmp/apache-maven-3.2.2.tar.gz -C /opt/
+RUN ln -s /opt/apache-maven-3.2.2 /opt/maven
+RUN ln -s /opt/maven/bin/mvn /usr/local/bin/
+RUN rm -f /tmp/apache-maven-3.2.2.tar.gz
+ENV MAVEN_HOME /opt/maven
+
+# set gradle and java
+ENV GRADLE_HOME=/usr/local/gradle-4.8
+ENV PATH="/usr/local/gradle-4.8/bin:${PATH}"
+
+
+
+# Install nodejs
+#ENV CONFIG_FLAGS="--fully-static --without-npm" DEL_PKGS="libstdc++" RM_DIRS=/usr/include
+# RUN apt-get update && apt-get install -y libfontconfig
+RUN apt-get update && apt-get install -y curl unzip make gcc g++ python python3-pip binutils-gold libfontconfig libpng-dev gnupg sudo xz-utils && \
+   for server in ipv4.pool.sks-keyservers.net keyserver.pgpcom ha.pool.sks-keyservers.net; do \
+    gpg --keyserver $server --recv-keys \
+	 
+	 
+	 
+	 
+	 
+	 
+	 
+   done && \
+   curl -sfSLO https://nodejs.org/dist/${VERSION}/node-${VERSION}.tar.xz && \
+   curl -sfSL https://nodejs.org/dist/${VERSION}/SHASUMS256.txt.ssc | gpg --batch -decrypt | \
+   grep " node-${VERSION}.tar.xz\$" | sha256sum -c | grep ': OK$' && \
+   tar -xf node-${VERSION}.tar.xz && \
+   cd node-${VERSION} && \
+   ./configure --prefix=/usr ${CONFIG_FLAGS} && \
+   make -j$(getconf _NPROCESSORS_ONLN) && \
+   make install && \
+   cd / && \
+   if [ -z "$CONFIG_FLAGS" ]; then \
+    if [ -n "$NPM_VERSION" ]; then \
+	  npm install -g npm@${NPM_VERSION}; \
+	fi; \
+   fi
+RUN pip3 install truffleHog json2html
+RUN find /usr/lib/node_modules/npm -name test -o -name .bin -type d | xargs rm -rf; \
+    if [ -n "$YARN_VERSION" ]; then \
+	  for server in ipv4.pool.sks-keyservers.net keyserver.pgp.com ha.pool.sks-keyservers.net; do \
+	    gpg --keyserver $server --recv-keys \
+		  6A010C5166006599AA17F08146C2130DFD2497F5 && break; \
+	  done && \
+	  curl -sfSL -O https://yarnpkg.com/${YARN_VERSION}.tar.gz -O https://yarnpkg.com/${YARN_VERSION}.tar.gz.asc && \
+	  gpg --batch --verify ${YARN_VERSION}.tar.gz.asc ${YARN_VERSION}.tar.gz && \
+	  mkdir /usr/local/share/yarn && \
+	  tar -xf ${YARN_VERSION}.tar.gz -C /usr/local/share/yarn --strip 1 && \
+	  ln -s /usr/local/share/yarn/bin/yarn /usr/local/bin/ && \
+	  ln -s /usr/local/share/yarn/bin/yarnpkg /usr/local/bin/ && \
+	  rm ${YARN_VERSION}.tar.gz*; \
+	fi;
+	
+RUN curl -L https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+&& chmod +x /usr/local/bin/kubectl

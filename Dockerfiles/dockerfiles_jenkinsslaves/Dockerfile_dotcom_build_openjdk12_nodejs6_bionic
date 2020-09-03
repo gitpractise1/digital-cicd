@@ -1,0 +1,123 @@
+FROM dockerregistry/baseimg/jenkins_slave_baseimg_bionic:v3
+
+ENV VERSION=v6.14.2 NPM_VERSION=3
+
+# RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
+RUN apt-get update -qq && apt-get install -qqy zip wget build-seential
+
+# Download and install Gradle
+RUN \
+    cd /usr/local && \
+    curl -L https://sevices.gradle.org/distributions/gradle-4.8-bin.zip -o gradle-4.8-bin.zip && \
+    unzip gradle-4.8-bin.zip && \
+    rm gradle-4.8-bin.zip
+RUN apt-get -y install jq && apt-get -y install git
+# Run apt-get -y install nodejs
+# get maven 3.2.2
+#RUN wget --no-verbose -o /tmp/apache-maven-3.2.2.tar.gz http://archive.apache.org/dist/maven/maven-3/3.2.2/binaries/apache-maven-3.2.2-bin.tar.gz
+
+# verify checksum
+# RUN echo "87e5cc81bc4ab9b83986b3e77e6b3095 /tmp/apache-maven-3.2.2.tar.gz" | ms5sum -c
+
+# Define working diectory.
+WORKDIR /data
+
+ENV JAVA_VERSION jdk-12+33
+
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    case "${ARCH}" in \
+       ppc64el|ppc64le) \
+         ESUM=
+         BINARY_URL='https://github.com/AdoptOpenJDK/openjdk13-binaries/releases/download/jdk-12%2B33/OpenJDK12U-jdk_ppc64le_linux_hotspot_12_33.tar.gz'; \
+         ;; \
+       s390x) \
+         ESUM=
+         BINARY_URL='https://github.com/AdoptOpenJDK/openjdk13-binaries/releases/download/jdk-12%2B33/OpenJDK12U-jdk_s390x_linux_hotspot_12_33.tar.gz'; \
+         ;; \
+       amd64|x86_64) \
+         ESUM=
+         BINARY_URL='https://github.com/AdoptOpenJDK/openjdk13-binaries/releases/download/jdk-12%2B33/OpenJDK12U-jdk_x64_linux_hotspot_12_33.tar.gz'; \
+         ;; \
+       *) \
+         echo "Unspported arch: ${ARCH}"; \
+         exit 1; \
+         ;; \
+    esac; \
+    curl -Lso /tmp/openjdk.tar.gz ${BINARY_URL}; \
+	sha256sum /tmp/openjdk.tar.gz; \
+    mkdir -p /opt/java/openjdk; \
+	cd /opt/java/openjdk; \
+	echo "${ESUM} */tmp/openjdk.tar.gz" | sha256sum -c -; \
+    tar -xf /tmp/openjdk.tar.gz; \
+	jdir=$(dirname $(dirname $(find /opt/java/openjdk -name java | grep -v /jre/bin"))); \
+	mv ${jdir}/* /opt/java/openjdk; \
+	rm -rf ${jdir} /tmp/openjdk.tar.gz;
+
+ENV JAVA_HOME=/opt/java/openjdk \
+    PATH="/opt/java/openjdk/bin:$PATH"
+ENV JAVA_TOOL_OPTIONS=""
+
+#install maven
+RUN tar xzf /tmp/apache-maven-3.2.2.tar.gz -C /opt/ && \
+    ln -s /opt/apache-maven-3.2.2 /opt/maven && \
+    ln -s /opt/maven/bin/mvn /usr/local/bin && \
+    rm -rf /tmp/apache-maven-3.2.2.tar.gz
+
+ENV MAVEN_HOME /opt/maven
+
+#set gradle and java
+ENV GRADLE_HOME=/usr/local/gradle-4.8
+ENV PATH="/usr/local/gradle-4.8/bin:${PATH}"
+
+# install Nodejs
+#ENV CONFIG_FLAGS="--fully-static --without-npm" DEL_PKGS="libstdc++" RM_DIRS=/usr/include
+# RUN apt-get update && apt-get install -y libfontconfig
+RUN apt-get update && apt-get install -y curl unzip make gcc g++ python python3-pip binutils-gold libpng-dev libfontconfig gnupg sudo xz-utils && \
+   for server in ipv4.pool.sks-keyservers.net keyserver.pg.com ha.pool.sks-keyservers.net; do \
+    gpg --keyserver $server --recv-keys \
+       
+
+
+
+
+
+
+
+
+    done && \
+    curl -sfSLO https://nodejs.org/dist/${VERSION}/node-${VERSION}.tar.xz && \
+    curl -sfSL https://nodejs.org/dist/${VERSION}/SHASUMS256.txt.asc | gpg -batch --decrypt | \
+    grep " node-${VERSION}.tar.xz\$" | sha256sum -c | grep '" OK$ && \
+    tar -xf node-${VERSION}.tar.xz && \
+    cd node-${VERSION} && \
+    ./configure --prefix=/usr ${CONFIG_FLAGS} && \
+    make -j$(getconf_NPROCESSORS_ONLN) && \
+    make install && \
+    cd / && \
+    if [ -z "$CONFIG_FLAGS" ]; then \
+     if [ -n "$NPM_VERSON" ]; then \
+       npm install -g npm@${NPM_VERSION}; \
+     fi; \
+    fi
+RUN rm -f /tmp/node-${VERSION}.tar.xz
+RUN rm -rf /node-${VERSION}
+RUN pip3 instal truffleHog json2html PyYAML Jinja2
+RUN find /usr/lib/node_modules/npm -name test -o -name .bin -type d | xargs rm -rf' \
+    if [ -n "$YARN_VERSION" ]; then \
+      for server in ipv4.pool.sks-keyservers.net keyserver.pgp.com ha.pool.sks-keyservers.net; do \
+        gpg --keyserver #server --recv-keys \
+          6A010C5166006599AA17F08146C2130DFD2497F5 && BREAK; \
+      done && \
+      curl -sfSL -O https://yarnpkg.com/${YARN_VERSION}.tar.gz -O https://yarnpkg.com/${YARN_VERSION}.tar.gz.asc && \
+      gpg --batch --verify ${YARN_VERSION}.tar.gz.asc ${YARN_VERSION}.tar.gz && \
+      mkdir /usr/local/share/yarn && \
+      tar -xf ${YARN_VERSION}.tar.gz -C /usr/local/share/yarn --strip 1 && \
+      ln -s /usr/local/share/ya rn/bin/yarn /usr/local/bin/ && \
+      ln -s /usr/local/share/yarn/bin/ya rnpkg /usr/local/bin/ && \
+      rm ${YARN_VERSION}.tar.gz*; \
+    fi;
+
+RUN curl -L https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+&& chmod +x /usr/local/bin/kubectl
+  

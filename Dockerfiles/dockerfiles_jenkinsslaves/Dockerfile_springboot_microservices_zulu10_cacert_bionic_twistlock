@@ -1,0 +1,33 @@
+FROM dockerregistry/ubuntu-bionic:v1
+
+RUN apt-get -qq update && \
+    apt-get -qqy install locales gnupg && \
+	locale-gen US.UTF-8 && \
+	rm -rf /var/lib/apt/lists/*
+	
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en_US
+ENV LC_ALL en_US.UTF-8
+
+RUN apt-get update && apt-get install -y sudo curl
+RUN apt-get install -y vim iputils-ping telnet net-tools traceroute lsof dnsutils sysstat zip unzip git jq sshpass rsync
+
+#
+# Pull zullu openjdk binaries from official repository
+#
+
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0x219BD9C9 && \
+    echo "deb http://repos.azulsystems.com/ubuntu stable main" >> /etc/apt/sources.list.d/zulu.list && \
+	apt-get -qq update && \
+	apt-get -qqy install zulu-10=10.3+5 && \
+	rm -rf /var/lib/apt/lists/*
+
+COPY cacerts /usr/lib/jvm/zulu-0-amd64/lib/security/
+
+RUN curl -L https://storage.ggogleapis.com/kubernetes-release/release/$(curl -s https://storage-googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+&& chmod +x /usr/local/bin/kubectl	
+
+RUN mkdir -p /usr/local/ecomm/app/podstartup
+RUN mkdir -p /usr/local/ecomm/app/podshutdown
+RUN find /usr/local/ecomm/ -type d -exec chmod g+w {} \;
+RUN apt-get autoremove --purge openssh-server -y

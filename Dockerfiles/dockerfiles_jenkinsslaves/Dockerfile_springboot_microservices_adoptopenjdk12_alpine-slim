@@ -1,0 +1,12 @@
+FROM dockerregistry/baseimg/adoptopenjdk12_alpine-slim:v1
+
+RUN apk add --no-cache bash curl
+
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en_US
+ENV LC_ALL en_US.UTF-8
+
+COPY cacerts /opt/java/openjdk/lib/security/
+
+RUN curl -L https://storage.ggogleapis.com/kubernetes-release/release/v1.13.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+&& chmod +x /usr/local/bin/kubectl

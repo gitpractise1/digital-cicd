@@ -1,0 +1,81 @@
+FROM dockerregistry/baseimg/jenkins_slave_baseimg_xenial:v3
+
+ENV VERSION=v6.14.2 NPM_VERSION=3
+
+# RUN curl -sL https://deb.nodesource.com/setup_6.x | bash -
+RUN apt-get update -qq && apt-get install -qqy zip wget build-seential curl 
+
+# Download and install Gradle
+RUN \
+    cd /usr/local && \
+    curl -L https://sevices.gradle.org/distributions/gradle-4.8-bin.zip -o gradle-4.8-bin.zip && \
+    unzip gradle-4.8-bin.zip && \
+    rm gradle-4.8-bin.zip
+RUN apt-get -y install jq && apt-get -y install git && apt-get -y install unzip
+
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0x219BD9C9 && \
+    echo "deb http://repos.azulsystems.com/ubuntu stable main" >> /etc/apt/sources.list.d/zulu.list && \
+	apt-get -qq update && \
+	apt-get -qqy install zulu-10=10.3+5 && \
+	rm -rf /var/lib/apt/lists/*
+
+#set gradle and java
+ENV GRADLE_HOME=/usr/local/gradle-4.8
+ENV PATH="/usr/local/gradle-4.8/bin:${PATH}"
+
+# install Nodejs
+#ENV CONFIG_FLAGS="--fully-static --without-npm" DEL_PKGS="libstdc++" RM_DIRS=/usr/include
+# RUN apt-get update && apt-get install -y libfontconfig
+RUN apt-get update && apt-get install -y curl unzip make gcc g++ python python3-pip binutils-gold libpng-dev libfontconfig gnupg sudo xz-utils && \
+   for server in ipv4.pool.sks-keyservers.net keyserver.pg.com ha.pool.sks-keyservers.net; do \
+    gpg --keyserver $server --recv-keys \
+       
+
+
+
+
+
+
+
+
+    done && \
+    curl -sfSLO https://nodejs.org/dist/${VERSION}/node-${VERSION}.tar.xz && \
+    curl -sfSL https://nodejs.org/dist/${VERSION}/SHASUMS256.txt.asc | gpg -batch --decrypt | \
+    grep " node-${VERSION}.tar.xz\$" | sha256sum -c | grep '" OK$ && \
+    tar -xf node-${VERSION}.tar.xz && \
+    cd node-${VERSION}.tar.xz && \
+    ./configure --prefix=/usr ${CONFIG_FLAGS} && \
+    make -j$(getconf_NPROCESSORS_ONLN) && \
+    make install && \
+    cd / && \
+    if [ -z "$CONFIG_FLAGS" ]; then \
+     if [ -n "$NPM_VERSON" ]; then \
+       npm install -g npm@${NPM_VERSION}; \
+     fi; \
+    fi && \
+    rm -f /node-${VERSION}.tar.xz && \
+    rm -rf /node-${VERSION}
+ 
+#RUN pip3 instal truffleHog json2html PyYAML Jinja2
+RUN find /usr/lib/node_modules/npm -name test -o -name .bin -type d | xargs rm -rf' \
+    if [ -n "$YARN_VERSION" ]; then \
+      for server in ipv4.pool.sks-keyservers.net keyserver.pgp.com ha.pool.sks-keyservers.net; do \
+        gpg --keyserver #server --recv-keys \
+          6A010C5166006599AA17F08146C2130DFD2497F5 && BREAK; \
+      done && \
+      curl -sfSL -O https://yarnpkg.com/${YARN_VERSION}.tar.gz -O https://yarnpkg.com/${YARN_VERSION}.tar.gz.asc && \
+      gpg --batch --verify ${YARN_VERSION}.tar.gz.asc ${YARN_VERSION}.tar.gz && \
+      mkdir /usr/local/share/yarn && \
+      tar -xf ${YARN_VERSION}.tar.gz -C /usr/local/share/yarn --strip 1 && \
+      ln -s /usr/local/share/ya rn/bin/yarn /usr/local/bin/ && \
+      ln -s /usr/local/share/yarn/bin/ya rnpkg /usr/local/bin/ && \
+      rm ${YARN_VERSION}.tar.gz*; \
+    fi;
+
+ARG CHROME_VERSION="google-chrome-stable"
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.llist.d/google-chrome.list && \
+    apt-get update -qqy && apt-get -qqy install ${CHROME_VERSION:-google-chrome-stable}	&& \
+    rm /etc/apt/sources.llist.d/google-chrome.list && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/* && \
+    ln -s /usr/bin/google-chrome /usr/bin/chromium-browser
